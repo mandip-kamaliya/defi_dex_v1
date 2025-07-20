@@ -97,6 +97,16 @@ contract Exchange is ERC20, ReentrancyGuard {
 
         return tokenAmount;
     }
+    function tokenForEthSwap(uint tokensSold, uint minEth) external nonReentrant returns(uint) {
+        uint ethAmount = getEthfortokens(tokensSold);
+        require(ethAmount >= minEth, "ETH amount less than expected");
+
+        IERC20(tokenaddress).transferFrom(msg.sender, address(this), tokensSold);
+        payable(msg.sender).transfer(ethAmount);
+        emit tokensold(msg.sender, tokensSold, ethAmount);
+
+        return ethAmount;
+    }
  
     
 }
