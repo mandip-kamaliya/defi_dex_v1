@@ -19,8 +19,8 @@ contract Exchange is ERC20,ReentrancyGuard {
     }
 
     //event
-    event AddLiquidity(address indexed sender,uint256 ethamount,uint256 tokenamount);
-    event RemoveLiquidity(address indexed reciever,uint256 ethamount,uint256 tokenamount);
+    event AddedLiquidity(address indexed sender,uint256 ethamount,uint256 tokenamount);
+    event RemovedLiquidity(address indexed reciever,uint256 ethamount,uint256 tokenamount);
     event tokenpurchaged(address indexed buyer,uint256 ethamount,uint256 tokenamount);
     event tokensold(address indexed seller,uint256 tokensold,uint256 ethrecieved);
 
@@ -49,5 +49,29 @@ contract Exchange is ERC20,ReentrancyGuard {
         uint256 outputreserve = IERC20(tokenaddress).balanceOf((address(this)));
         return  getamount(Ethsold, address(this).balance, outputreserve);
     }
+
+    //liquidity functions
+
+    function addliquidity(uint256 tokenadded) external nonReentrant payable returns(uint256){
+        uint256 ethBalance = address(this).balance;
+        uint256 tokenreserve = gettokenreserve();
+        
+        if(tokenreserve == 0){
+            require(IERC20(tokenaddress).balanceOf(msg.sender)>=tokenadded,"insufficient balance");
+            IERC20(tokenaddress).transferFrom(msg.sender,address(this), tokenadded);
+            uint256 liquidity = ethBalance;
+            _mint(msg.sender, liquidity);
+            emit AddedLiquidity(msg.sender, msg.value, tokenadded);
+            return liquidity;
+        }else{
+            uint256 liquidity = (msg.value * totalSupply())/ethBalance;
+            require(IERC20(tokenaddress).balanceOf(msg.sender)>=tokenadded,"insufficient balance");
+            IERC20(tokenaddress).transferFrom(msg.sender, address(this), tokenadded);
+            _mint(msg.sender,liquidity);
+            emit AddedLiquidity(msg.sender, msg.value, tokenadded);
+            return liquidity;
+ 
+        }
+           }
 
 }
