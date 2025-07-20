@@ -87,9 +87,10 @@ contract Exchange is ERC20, ReentrancyGuard {
         emit RemovedLiquidity(msg.sender, ethamount, tokenvalue);
         return (ethamount, tokenvalue);
     }
-     // Swap Functions
-    function swapEthForTokens(uint minTokens, address recipient) external payable nonReentrant returns (uint) {
-        uint tokenAmount = gettokenforEth(msg.value);
+    // Swap Functions
+
+    function swapEthForTokens(uint256 minTokens, address recipient) external payable nonReentrant returns (uint256) {
+        uint256 tokenAmount = gettokenforEth(msg.value);
         require(tokenAmount >= minTokens, "Token amount less than expected");
 
         IERC20(tokenaddress).transfer(recipient, tokenAmount);
@@ -97,8 +98,9 @@ contract Exchange is ERC20, ReentrancyGuard {
 
         return tokenAmount;
     }
-    function tokenForEthSwap(uint tokensSold, uint minEth) external nonReentrant returns(uint) {
-        uint ethAmount = getEthfortokens(tokensSold);
+
+    function tokenForEthSwap(uint256 tokensSold, uint256 minEth) external nonReentrant returns (uint256) {
+        uint256 ethAmount = getEthfortokens(tokensSold);
         require(ethAmount >= minEth, "ETH amount less than expected");
 
         IERC20(tokenaddress).transferFrom(msg.sender, address(this), tokensSold);
@@ -107,6 +109,4 @@ contract Exchange is ERC20, ReentrancyGuard {
 
         return ethAmount;
     }
- 
-    
 }
