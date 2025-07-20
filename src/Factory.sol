@@ -11,9 +11,9 @@ contract Factory {
 
     event ExchangeCreated(address indexed tokenAddress, address indexed exchangeAddress);
 
-    function createNewExchange(address _tokenAddress) public returns(address) {
-        require (_tokenAddress != address(0), "Invalid token address");
-        require(tokenToExchange[_tokenAddress] == address(0),"exchange already exists");
+    function createNewExchange(address _tokenAddress) public returns (address) {
+        require(_tokenAddress != address(0), "Invalid token address");
+        require(tokenToExchange[_tokenAddress] == address(0), "exchange already exists");
         Exchange exchange = new Exchange(_tokenAddress);
         exchangeArray.push(exchange);
         tokenToExchange[_tokenAddress] = address(exchange);
@@ -21,7 +21,7 @@ contract Factory {
         return address(exchange);
     }
 
-    function getExchange(address _tokenAddress) public view returns(address) {
+    function getExchange(address _tokenAddress) public view returns (address) {
         return tokenToExchange[_tokenAddress];
     }
 
