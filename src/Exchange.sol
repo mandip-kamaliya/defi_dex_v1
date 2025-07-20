@@ -18,8 +18,8 @@ contract Exchange is ERC20, ReentrancyGuard {
     }
 
     //event
-    event AddedLiquidity(address indexed sender, uint256 ethamount, uint256 tokenamount);
-    event RemovedLiquidity(address indexed reciever, uint256 ethamount, uint256 tokenamount);
+    event AddedLiquidity(address indexed sender, uint256 ethamount, uint256 tokenamount,uint256 liquidity_token);
+    event RemovedLiquidity(address indexed reciever, uint256 ethamount, uint256 tokenamount,uint256 liquidity_token);
     event tokenpurchaged(address indexed buyer, uint256 ethamount, uint256 tokenamount);
     event tokensold(address indexed seller, uint256 tokensold, uint256 ethrecieved);
 
@@ -31,7 +31,7 @@ contract Exchange is ERC20, ReentrancyGuard {
     //pricing functions
     function getamount(uint256 inputamount, uint256 inputreserve, uint256 outputreserve)
         public
-        view
+        pure
         returns (uint256)
     {
         require(inputreserve > 0 && inputamount > 0, "invalid value provided!!");
@@ -71,8 +71,20 @@ contract Exchange is ERC20, ReentrancyGuard {
             require(IERC20(tokenaddress).balanceOf(msg.sender) >= tokenadded, "insufficient balance");
             IERC20(tokenaddress).transferFrom(msg.sender, address(this), tokenadded);
             _mint(msg.sender, liquidity);
-            emit AddedLiquidity(msg.sender, msg.value, tokenadded);
+            emit AddedLiquidity(msg.sender, msg.value, tokenadded,tokenadded);
             return liquidity;
         }
+    }
+
+    function removeliquidity(uint256 tokenamount) external nonReentrant returns(uint256,uint256){
+        require(tokenamount>0,"token amount should be more than zero");
+
+        uint256 ethamount = (tokenamount * address(this).balance)/totalSupply();
+        uint256 tokenvalue = (tokenamount * IERC20(tokenaddress).balanceOf(address(this)));
+        _burn(msg.sender, tokenamount);
+        payable(msg.sender).transfer(ethamount);
+        IERC20(tokenaddress).transferFrom(address(this), msg.sender, tokenvalue);
+        emit RemovedLiquidity(msg.sender, ethamount, tokenvalue,tokenamount);
+        return (ethamount,tokenvalue);
     }
 }
