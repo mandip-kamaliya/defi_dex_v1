@@ -86,7 +86,7 @@ contract Exchange is ERC20, ReentrancyGuard {
         require(tokenamount > 0, "token amount should be more than zero");
         require(totalSupply() > 0, "No liquidity in pool to remove");
         uint256 ethamount = (tokenamount * address(this).balance) / totalSupply();
-        uint256 tokenvalue = (tokenamount * IERC20(tokenaddress).balanceOf(address(this)))/totalSupply();
+        uint256 tokenvalue = (tokenamount * IERC20(tokenaddress).balanceOf(address(this))) / totalSupply();
         _burn(msg.sender, tokenamount);
         payable(msg.sender).transfer(ethamount);
         IERC20(tokenaddress).transfer(msg.sender, tokenvalue);
