@@ -34,4 +34,26 @@ contract ExchangeTest is Test {
         assertEq(contractTokenBalance, tokenadded, "Exchange token balance incorrect");
         assertEq(address(exchange).balance, ethAmount, "Exchange Eth balance incorrect");
     }
+
+    function testRemoveLiquidity() public {
+        vm.prank(owner);
+        vm.deal(owner, 10 ether);
+        token.mint(owner, 10000 * 10 ** 18);
+        vm.prank(owner);
+        token.approve(address(exchange), 10000 * 10 ** 18);
+        vm.prank(owner);
+        uint256 tokensToAdd = 5000 * 10 ** 18;
+        uint256 ethToAdd = 10 ether;
+        uint256 liquidity = exchange.addliquidity{value: ethToAdd}(tokensToAdd);
+
+        uint256 totalLiquidityTokens = liquidity;
+
+        vm.prank(owner);
+        (uint256 ethAmount, uint256 tokenAmount) = exchange.removeliquidity(totalLiquidityTokens);
+        console.log(ethAmount, tokenAmount);
+
+        assertTrue(ethAmount > 0 && tokenAmount > 0, "ETH and Tokens should be returned");
+        assertEq(ethAmount, ethToAdd, "Incorrect ETH amount returned");
+        assertEq(tokenAmount, tokensToAdd, "Incorrect Token amount returned");
+    }
 }
