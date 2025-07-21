@@ -22,4 +22,10 @@ contract factoryTest is Test {
         assertEq(factory.getExchange(address(token)), ExchangeAddress);
         assertTrue(ExchangeAddress != address(0), "Exchange address can not be empty");
     }
+
+    function test_Revert_When_CreateExchangeForExistingExchange() public {
+        factory.createNewExchange(address(token));
+        vm.expectRevert(bytes("exchange already exists"));
+        factory.createNewExchange(address(token));
+    }
 }
