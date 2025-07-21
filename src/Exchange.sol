@@ -42,10 +42,10 @@ contract Exchange is ERC20, ReentrancyGuard {
         return numerator / denominator;
     }
 
-    function getEthfortokens(uint256 tokensold) public view returns (uint256) {
-        require(tokensold > 0, "token amount should be more than zero");
+    function getEthfortokens(uint256 tokensSold) public view returns (uint256) {
+        require(tokensSold > 0, "token amount should be more than zero");
         uint256 inputreserve = IERC20(tokenaddress).balanceOf(address(this));
-        return getamount(tokensold, inputreserve, address(this).balance);
+        return getamount(tokensSold, inputreserve, address(this).balance);
     }
 
     function gettokenforEth(uint256 Ethsold) public view returns (uint256) {
@@ -86,7 +86,7 @@ contract Exchange is ERC20, ReentrancyGuard {
         require(tokenamount > 0, "token amount should be more than zero");
         require(totalSupply() > 0, "No liquidity in pool to remove");
         uint256 ethamount = (tokenamount * address(this).balance) / totalSupply();
-        uint256 tokenvalue = (tokenamount * IERC20(tokenaddress).balanceOf(address(this))) / totalSupply();
+        uint256 tokenvalue = (tokenamount * IERC20(tokenaddress).balanceOf(address(this)))/totalSupply();
         _burn(msg.sender, tokenamount);
         payable(msg.sender).transfer(ethamount);
         IERC20(tokenaddress).transfer(msg.sender, tokenvalue);
