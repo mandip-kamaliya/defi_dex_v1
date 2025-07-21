@@ -56,4 +56,46 @@ contract ExchangeTest is Test {
         assertEq(ethAmount, ethToAdd, "Incorrect ETH amount returned");
         assertEq(tokenAmount, tokensToAdd, "Incorrect Token amount returned");
     }
+
+    function testSwapEthForTokens() public {
+        vm.prank(owner);
+        vm.deal(owner, 10 ether);
+        token.mint(owner, 10000 ether);
+        vm.prank(owner);
+        token.approve(address(exchange), 10000 ether);
+        vm.prank(owner);
+        exchange.addliquidity{value: 10 ether}(10000 ether);
+
+        uint256 ethToSwap = 1 ether;
+        uint256 minTokens = 1;
+        address recipient = makeAddr("bob");
+        vm.deal(recipient, ethToSwap);
+        vm.prank(recipient);
+        uint256 tokensReceived = exchange.swapEthForTokens{value: ethToSwap}(minTokens, recipient);
+
+        assertTrue(tokensReceived >= minTokens, "Received less tokens than expected");
+    }
+
+    function testTokenForEthSwap() public {
+        vm.prank(owner);
+        vm.deal(owner, 10 ether);
+        token.mint(owner, 10000 ether);
+        vm.prank(owner);
+        token.approve(address(exchange), 10000 ether);
+        vm.prank(owner);
+        exchange.addliquidity{value: 10 ether}(10000 ether);
+
+        address bob = makeAddr("bob");
+        vm.prank(owner);
+        token.mint(bob, 1000 ether);
+        vm.prank(bob);
+        token.approve(address(exchange), 1000 ether);
+
+        uint256 tokensToSwap = 500 ether;
+        uint256 minEth = 1;
+        vm.prank(bob);
+        uint256 ethReceived = exchange.tokenForEthSwap(tokensToSwap, minEth);
+
+        assertTrue(ethReceived >= minEth, "Received less ETH than expected");
+    }
 }
