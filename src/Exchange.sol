@@ -30,11 +30,7 @@ contract Exchange is ERC20, ReentrancyGuard {
     }
 
     //pricing functions
-    function getamount(uint256 inputamount, uint256 inputreserve, uint256 outputreserve)
-        public
-        pure
-        returns (uint256)
-    {
+    function getamount(uint256 inputamount, uint256 inputreserve, uint256 outputreserve) public pure returns (uint256) {
         require(inputreserve > 0 && inputamount > 0, "invalid value provided!!");
         uint256 inputwithfee = inputamount * 997;
         uint256 numerator = (inputwithfee * outputreserve);
