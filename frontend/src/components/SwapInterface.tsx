@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react'
-import { useAccount, useWriteContract, useReadContract } from 'wagmi'
+import { useAccount, useWriteContract, useReadContract, useBalance } from 'wagmi'
 import { formatUnits } from 'viem'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { ArrowDownUp, Settings } from 'lucide-react'
-import { EXCHANGE_ADDRESS, EXCHANGE_ABI, ERC20_ABI, TOKENS } from '@/lib/contracts'
-import { formatBalance, parseAmount, getDeadline } from '@/lib/utils'
+import { EXCHANGE_ABI, ERC20_ABI, FACTORY_ADDRESS, FACTORY_ABI, TOKENS } from '@/lib/contracts'
+import { formatBalance, parseAmount } from '@/lib/utils'
 
 type TokenAddress = typeof TOKENS[keyof typeof TOKENS]
 
@@ -14,26 +14,48 @@ const SwapInterface: React.FC = () => {
   const { address, isConnected } = useAccount()
   const { writeContract } = useWriteContract()
   
-  const [tokenIn, setTokenIn] = useState<TokenAddress>(TOKENS.WETH)
+  const [tokenIn, setTokenIn] = useState<TokenAddress>(TOKENS.ETH)
   const [tokenOut, setTokenOut] = useState<TokenAddress>(TOKENS.USDC)
   const [amountIn, setAmountIn] = useState('')
   const [amountOut, setAmountOut] = useState('')
   const [slippage, setSlippage] = useState('0.5')
   const [isSwapping, setIsSwapping] = useState(false)
 
-  // Read token balances
+  // Get exchange address from factory for token pairs
+  const { data: exchangeAddress, error: factoryError } = useReadContract({
+    address: FACTORY_ADDRESS as `0x${string}`,
+    abi: FACTORY_ABI,
+    functionName: 'getExchange',
+    args: tokenIn !== TOKENS.ETH ? [tokenIn] : [tokenOut],
+  })
+
+  // Debug logging
+  useEffect(() => {
+    console.log('Token In:', tokenIn)
+    console.log('Token Out:', tokenOut)
+    console.log('Exchange Address:', exchangeAddress)
+    console.log('Factory Error:', factoryError)
+    console.log('Amount In:', amountIn)
+  }, [tokenIn, tokenOut, exchangeAddress, factoryError, amountIn])
+
+  // Read token balances (skip for native ETH)
   const { data: balanceIn } = useReadContract({
     address: tokenIn as `0x${string}`,
     abi: ERC20_ABI,
     functionName: 'balanceOf',
-    args: address ? [address] : undefined,
+    args: address && tokenIn !== TOKENS.ETH ? [address] : undefined,
   })
 
   const { data: balanceOut } = useReadContract({
     address: tokenOut as `0x${string}`,
     abi: ERC20_ABI,
     functionName: 'balanceOf',
-    args: address ? [address] : undefined,
+    args: address && tokenOut !== TOKENS.ETH ? [address] : undefined,
+  })
+
+  // Read ETH balance using wagmi's useBalance
+  const { data: ethBalance } = useBalance({
+    address: address,
   })
 
   // Read token info
@@ -49,24 +71,39 @@ const SwapInterface: React.FC = () => {
     functionName: 'symbol',
   })
 
-  // Calculate output amount when input changes
-  useEffect(() => {
-    if (amountIn && tokenIn && tokenOut) {
-      // This is a simplified calculation - in a real app, you'd query the contract
-      const amountInBN = parseAmount(amountIn)
-      if (amountInBN > 0n) {
-        // Mock calculation - replace with actual contract call
-        setAmountOut((parseFloat(amountIn) * 0.99).toString())
-      } else {
-        setAmountOut('')
-      }
-    } else {
-      setAmountOut('')
+  // Calculate output amount using contract pricing
+  const { data: tokenAmount, error: pricingError } = useReadContract({
+    address: exchangeAddress as `0x${string}`,
+    abi: EXCHANGE_ABI,
+    functionName: tokenIn === TOKENS.ETH ? 'gettokenforEth' : 'getEthfortokens',
+    args: amountIn && parseAmount(amountIn) > 0n ? [parseAmount(amountIn)] : undefined,
+    query: {
+      enabled: !!amountIn && !!exchangeAddress && parseAmount(amountIn) > 0n,
+      retry: false
     }
-  }, [amountIn, tokenIn, tokenOut])
+  })
+
+  // Update amountOut when contract data changes
+  useEffect(() => {
+    if (tokenAmount) {
+      const formattedAmount = formatUnits(tokenAmount as bigint, 18)
+      setAmountOut(formattedAmount)
+    } else if (!amountIn) {
+      setAmountOut('')
+    } else if (pricingError) {
+      console.error('Pricing error:', pricingError)
+      // Fallback to mock calculation for testing
+      const mockAmount = (parseFloat(amountIn) * 0.99).toString()
+      setAmountOut(mockAmount + ' (mock)')
+    } else if (!exchangeAddress) {
+      // No exchange exists - show mock pricing for testing
+      const mockAmount = (parseFloat(amountIn) * 0.99).toString()
+      setAmountOut(mockAmount + ' (mock - no exchange)')
+    }
+  }, [tokenAmount, amountIn, pricingError, exchangeAddress])
 
   const handleSwap = async () => {
-    if (!isConnected || !address) return
+    if (!isConnected || !address || !exchangeAddress) return
 
     try {
       setIsSwapping(true)
@@ -74,18 +111,24 @@ const SwapInterface: React.FC = () => {
       const amountInBN = parseAmount(amountIn)
       const amountOutMinBN = parseAmount((parseFloat(amountOut) * (1 - parseFloat(slippage) / 100)).toString())
       
-      await writeContract({
-        address: EXCHANGE_ADDRESS as `0x${string}`,
-        abi: EXCHANGE_ABI,
-        functionName: 'swapExactTokensForTokens',
-        args: [
-          amountInBN as any,
-          amountOutMinBN as any,
-          [tokenIn, tokenOut] as any,
-          address as any,
-          BigInt(getDeadline()) as any
-        ] as any,
-      })
+      if (tokenIn === TOKENS.ETH) {
+        // ETH -> Token swap
+        await writeContract({
+          address: exchangeAddress as `0x${string}`,
+          abi: EXCHANGE_ABI,
+          functionName: 'swapEthForTokens',
+          args: [amountOutMinBN as any, address as any],
+          value: amountInBN as any,
+        })
+      } else {
+        // Token -> ETH swap
+        await writeContract({
+          address: exchangeAddress as `0x${string}`,
+          abi: EXCHANGE_ABI,
+          functionName: 'tokenForEthSwap',
+          args: [amountInBN as any, amountOutMinBN as any],
+        })
+      }
       
       setAmountIn('')
       setAmountOut('')
@@ -104,7 +147,10 @@ const SwapInterface: React.FC = () => {
   }
 
   const handleSetMaxAmount = () => {
-    if (balanceIn) {
+    if (tokenIn === TOKENS.ETH && ethBalance) {
+      const formattedBalance = formatUnits(ethBalance.value, ethBalance.decimals)
+      setAmountIn(formattedBalance)
+    } else if (balanceIn) {
       const formattedBalance = formatUnits(balanceIn as bigint, 18)
       setAmountIn(formattedBalance)
     }
@@ -125,13 +171,24 @@ const SwapInterface: React.FC = () => {
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <label className="text-sm font-medium">You pay</label>
-            {balanceIn !== undefined && (
-              <button
-                onClick={handleSetMaxAmount}
-                className="text-xs text-primary-600 hover:text-primary-700"
-              >
-                Max: {formatBalance(balanceIn as bigint)} {tokenInInfo || 'ETH'}
-              </button>
+            {tokenIn === TOKENS.ETH ? (
+              ethBalance && (
+                <button
+                  onClick={handleSetMaxAmount}
+                  className="text-xs text-primary-600 hover:text-primary-700"
+                >
+                  Max: {formatBalance(ethBalance.value)} ETH
+                </button>
+              )
+            ) : (
+              balanceIn !== undefined && (
+                <button
+                  onClick={handleSetMaxAmount}
+                  className="text-xs text-primary-600 hover:text-primary-700"
+                >
+                  Max: {formatBalance(balanceIn as bigint)} {tokenInInfo || 'TOKEN'}
+                </button>
+              )
             )}
           </div>
           <div className="flex space-x-2">
@@ -147,7 +204,7 @@ const SwapInterface: React.FC = () => {
               onChange={(e) => setTokenIn(e.target.value as TokenAddress)}
               className="px-3 py-2 border border-secondary-300 rounded-md bg-white text-sm"
             >
-              <option value={TOKENS.WETH}>WETH</option>
+              <option value={TOKENS.ETH}>ETH</option>
               <option value={TOKENS.USDC}>USDC</option>
               <option value={TOKENS.DAI}>DAI</option>
             </select>
@@ -170,10 +227,18 @@ const SwapInterface: React.FC = () => {
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <label className="text-sm font-medium">You receive</label>
-            {balanceOut !== undefined && (
-              <span className="text-xs text-secondary-600">
-                Balance: {formatBalance(balanceOut as bigint)} {tokenOutInfo || 'ETH'}
-              </span>
+            {tokenOut === TOKENS.ETH ? (
+              ethBalance && (
+                <span className="text-xs text-secondary-600">
+                  Balance: {formatBalance(ethBalance.value)} ETH
+                </span>
+              )
+            ) : (
+              balanceOut !== undefined && (
+                <span className="text-xs text-secondary-600">
+                  Balance: {formatBalance(balanceOut as bigint)} {tokenOutInfo || 'TOKEN'}
+                </span>
+              )
             )}
           </div>
           <div className="flex space-x-2">
@@ -189,7 +254,7 @@ const SwapInterface: React.FC = () => {
               onChange={(e) => setTokenOut(e.target.value as TokenAddress)}
               className="px-3 py-2 border border-secondary-300 rounded-md bg-white text-sm"
             >
-              <option value={TOKENS.WETH}>WETH</option>
+              <option value={TOKENS.ETH}>ETH</option>
               <option value={TOKENS.USDC}>USDC</option>
               <option value={TOKENS.DAI}>DAI</option>
             </select>
@@ -216,7 +281,7 @@ const SwapInterface: React.FC = () => {
         {/* Swap Button */}
         <Button
           onClick={handleSwap}
-          disabled={!isConnected || !amountIn || parseFloat(amountIn) <= 0 || isSwapping}
+          disabled={!isConnected || !amountIn || parseFloat(amountIn) <= 0 || !exchangeAddress || isSwapping}
           className="w-full"
         >
           {isSwapping ? 'Swapping...' : !isConnected ? 'Connect Wallet' : 'Swap'}
