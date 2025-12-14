@@ -21,7 +21,7 @@ export const config = createConfig({
   ],
   transports: {
     [hardhat.id]: http(),
-    [sepolia.id]: http(),
+    [sepolia.id]: http('https://eth-sepolia-testnet.api.pocket.network'),
     [mainnet.id]: http(),
   },
 })
