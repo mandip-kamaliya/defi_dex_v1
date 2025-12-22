@@ -5,8 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Plus, Minus } from 'lucide-react'
-import { EXCHANGE_ADDRESS, EXCHANGE_ABI, ERC20_ABI, FACTORY_ADDRESS, FACTORY_ABI, TOKENS } from '@/lib/contracts'
-import { formatBalance, parseAmount, getDeadline } from '@/lib/utils'
+import {  EXCHANGE_ABI, ERC20_ABI, FACTORY_ADDRESS, FACTORY_ABI, TOKENS } from '@/lib/contracts'
+import { formatBalance, parseAmount } from '@/lib/utils'
 
 type TokenAddress = typeof TOKENS[keyof typeof TOKENS]
 
