@@ -1,66 +1,128 @@
-## Foundry
+# Uniswap V1-Style DEX
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+A decentralized exchange that allows swapping between ETH and ERC20 tokens, inspired by Uniswap V1.
 
-Foundry consists of:
+## Architecture
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+### Smart Contracts
 
-## Documentation
+- **Factory.sol**: Creates exchange contracts for each ERC20 token
+- **Exchange.sol**: Handles ETH/Token swaps and liquidity provision
+- **ERC20.sol**: Sample ERC20 token for testing
 
-https://book.getfoundry.sh/
+### Frontend
 
-## Usage
+React + TypeScript frontend using:
+- Wagmi for wallet connection
+- Viem for contract interactions
+- Tailwind CSS for styling
 
-### Build
 
-```shell
-$ forge build
+## Setup Instructions
+
+### 1. Prerequisites
+
+Install Foundry:
+```bash
+curl -L https://foundry.paradigm.xyz | bash
+foundryup
 ```
 
-### Test
+### 2. Deploy Contracts
 
-```shell
-$ forge test
+Start a local node:
+```bash
+anvil
 ```
 
-### Format
-
-```shell
-$ forge fmt
+Deploy the Factory contract:
+```bash
+forge script script/Deploy.s.sol:DeployFactory --rpc-url http://localhost:8545 --private-key <private-key> --broadcast
 ```
 
-### Gas Snapshots
-
-```shell
-$ forge snapshot
+Deploy a test token:
+```bash
+forge script script/DeployToken.s.sol:DeployToken --rpc-url http://localhost:8545 --private-key <private-key> --broadcast
 ```
 
-### Anvil
-
-```shell
-$ anvil
+Create an exchange for the token:
+```bash
+cast send <FACTORY_ADDRESS> "createNewExchange(address)" <TOKEN_ADDRESS> --rpc-url http://localhost:8545 --private-key <private-key>
 ```
 
-### Deploy
+### 3. Configure Frontend
 
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
+Update contract addresses in `frontend/src/lib/contracts.ts`:
+```typescript
+export const FACTORY_ADDRESS = '<YOUR_FACTORY_ADDRESS>'
+export const TOKENS = {
+  ETH: '0x0000000000000000000000000000000000000000',
+  USDC: '<YOUR_DEPLOYED_TOKEN_ADDRESS>',
+  DAI: '<ANOTHER_TOKEN_ADDRESS>',
+}
 ```
 
-### Cast
+### 4. Run Frontend
 
-```shell
-$ cast <subcommand>
+```bash
+cd frontend
+npm install
+npm run dev
 ```
 
-### Help
+### 5. Connect Wallet
 
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
+1. Install MetaMask
+2. Add local network: Network Name: "Localhost 8545", RPC URL: "http://localhost:8545", Chain ID: "31337"
+
+
+## Features
+
+### Swapping
+- **ETH → Token**: Send ETH to receive ERC20 tokens
+- **Token → ETH**: Send ERC20 tokens to receive ETH
+- 0.3% fee on all swaps
+- Slippage protection
+
+### Liquidity
+- **Add Liquidity**: Provide ETH and tokens to earn fees
+- **Remove Liquidity**: Withdraw ETH and tokens
+- Receive LP tokens representing your share
+
+## Contract Functions
+
+### Exchange.sol
+- `swapEthForTokens(uint256 minTokens, address recipient)`: Swap ETH for tokens
+- `tokenForEthSwap(uint256 tokensSold, uint256 minEth)`: Swap tokens for ETH
+- `addliquidity(uint256 tokenadded)`: Add liquidity (payable)
+- `removeliquidity(uint256 tokenamount)`: Remove liquidity
+- `gettokenreserve()`: Get token reserve amount
+- `getamount()`: Calculate output amount with fees
+- `getEthfortokens()`: Get ETH amount for tokens
+- `gettokenforEth()`: Get token amount for ETH
+
+### Factory.sol
+- `createNewExchange(address tokenAddress)`: Create new exchange
+- `getExchange(address tokenAddress)`: Get exchange address for token
+
+## Testing
+
+Run contract tests:
+```bash
+forge test
 ```
+
+## Security Notes
+
+- Contracts use ReentrancyGuard
+- Proper access controls in place
+- Slippage protection in frontend
+- Always verify contract addresses before interacting
+
+## Next Steps
+
+1. Deploy to a testnet (Sepolia/Goerli)
+2. Add more token pairs
+3. Implement price charts
+4. Add transaction history
+5. Implement limit orders
